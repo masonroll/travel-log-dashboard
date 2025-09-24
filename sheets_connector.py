@@ -24,21 +24,33 @@ class SheetsConnector:
                 "https://www.googleapis.com/auth/drive"
             ]
             
-            # Load credentials
-            credentials_path = "credentials.json"
-            if not os.path.exists(credentials_path):
-                st.error("❌ credentials.json file not found. Please add your Google API credentials.")
-                st.stop()
+            # Try to load credentials from Streamlit secrets first (for cloud deployment)
+            creds = None
+            try:
+                credentials_dict = st.secrets["gcp_service_account"]
+                creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
+            except:
+                # Fallback to local credentials.json file (for local development)
+                credentials_path = "credentials.json"
+                if not os.path.exists(credentials_path):
+                    st.error("❌ credentials.json file not found and no Streamlit secrets configured. Please add your Google API credentials.")
+                    st.stop()
+                creds = Credentials.from_service_account_file(credentials_path, scopes=scope)
             
-            creds = Credentials.from_service_account_file(credentials_path, scopes=scope)
             _self.gc = gspread.authorize(creds)
             
-            # Open the sheet
-            sheet_name = os.getenv('GOOGLE_SHEET_NAME', 'Travel Log')
-            _self.sheet = _self.gc.open(sheet_name)
+            # Get sheet configuration
+            try:
+                # Try Streamlit secrets first
+                sheet_name = st.secrets.get('GOOGLE_SHEET_NAME', 'Travel Log')
+                worksheet_name = st.secrets.get('WORKSHEET_NAME', 'Raw Data')
+            except:
+                # Fallback to environment variables
+                sheet_name = os.getenv('GOOGLE_SHEET_NAME', 'Travel Log')
+                worksheet_name = os.getenv('WORKSHEET_NAME', 'Raw Data')
             
-            # Open the worksheet
-            worksheet_name = os.getenv('WORKSHEET_NAME', 'Raw data')
+            # Open the sheet and worksheet
+            _self.sheet = _self.gc.open(sheet_name)
             _self.worksheet = _self.sheet.worksheet(worksheet_name)
             
             return True
