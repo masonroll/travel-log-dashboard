@@ -70,7 +70,9 @@ st.markdown("""
         border-radius: 0.5rem;
         margin: 0.35rem 0;
         font-size: 0.95rem;
-        animation: fadeOutNotice 5s forwards;
+        max-height: 80px;
+        overflow: hidden;
+        animation: fadeOutNotice 5s forwards, collapseNotice 0s linear 5s forwards;
     }
 
     .timed-notice.success {
@@ -86,23 +88,13 @@ st.markdown("""
     }
 
     @keyframes fadeOutNotice {
-        0% {
-            opacity: 1;
-            max-height: 80px;
-            margin: 0.35rem 0;
-        }
-        84% {
-            opacity: 1;
-            max-height: 80px;
-            margin: 0.35rem 0;
-        }
-        99% {
-            opacity: 0;
-            max-height: 80px;
-            margin: 0.35rem 0;
-        }
-        100% {
-            opacity: 0;
+        0% { opacity: 1; }
+        85% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+
+    @keyframes collapseNotice {
+        to {
             max-height: 0;
             margin: 0;
             padding-top: 0;
