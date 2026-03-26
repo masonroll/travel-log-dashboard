@@ -13,9 +13,25 @@ class SheetsConnector:
         self.gc = None
         self.sheet = None
         self.worksheet = None
+
+    def _get_sheet_config(self):
+        """Resolve sheet and worksheet names from secrets or environment."""
+        sheet_name = os.getenv('GOOGLE_SHEET_NAME', 'Travel Log')
+        worksheet_name = os.getenv('WORKSHEET_NAME', 'Raw Data')
+
+        try:
+            sheet_name = st.secrets.get('GOOGLE_SHEET_NAME', sheet_name)
+            worksheet_name = st.secrets.get('WORKSHEET_NAME', worksheet_name)
+        except Exception:
+            # Streamlit secrets are optional in local development.
+            pass
+
+        return sheet_name, worksheet_name
         
     def connect_to_sheets(_self):
         """Connect to Google Sheets using service account credentials"""
+        sheet_name, worksheet_name = _self._get_sheet_config()
+
         try:
             # Reset connection state each attempt to avoid stale object references.
             _self.gc = None
@@ -43,19 +59,13 @@ class SheetsConnector:
             
             _self.gc = gspread.authorize(creds)
             
-            # Get sheet configuration
-            try:
-                # Try Streamlit secrets first
-                sheet_name = st.secrets.get('GOOGLE_SHEET_NAME', 'Travel Log')
-                worksheet_name = st.secrets.get('WORKSHEET_NAME', 'Raw Data')
-            except:
-                # Fallback to environment variables
-                sheet_name = os.getenv('GOOGLE_SHEET_NAME', 'Travel Log')
-                worksheet_name = os.getenv('WORKSHEET_NAME', 'Raw Data')
-            
             # Open the sheet and worksheet
             _self.sheet = _self.gc.open(sheet_name)
             _self.worksheet = _self.sheet.worksheet(worksheet_name)
+
+            if _self.worksheet is None:
+                st.error(f"❌ Worksheet '{worksheet_name}' was not returned by Google Sheets API.")
+                return None
             
             return _self.worksheet
             
@@ -72,7 +82,8 @@ class SheetsConnector:
     def load_data(_self):
         """Load data from Google Sheets and return as DataFrame"""
         worksheet = _self.connect_to_sheets()
-        if worksheet is None:
+        if worksheet is None or not hasattr(worksheet, 'get_all_records'):
+            st.error("❌ Could not connect to a valid worksheet. Check credentials, sheet name, worksheet name, and sharing permissions.")
             return None
             
         try:
