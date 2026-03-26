@@ -63,6 +63,33 @@ st.markdown("""
     .plotly-graph-div {
         background-color: white !important;
     }
+
+    /* Timed sidebar notification cards */
+    .timed-notice {
+        padding: 0.75rem 0.9rem;
+        border-radius: 0.5rem;
+        margin: 0.35rem 0;
+        font-size: 0.95rem;
+        animation: fadeOutNotice 5s forwards;
+    }
+
+    .timed-notice.success {
+        background: #e8f7ee;
+        color: #146c43;
+        border: 1px solid #bfe6cd;
+    }
+
+    .timed-notice.info {
+        background: #e8f2ff;
+        color: #0b5394;
+        border: 1px solid #c7dcfb;
+    }
+
+    @keyframes fadeOutNotice {
+        0% { opacity: 1; max-height: 80px; margin: 0.35rem 0; }
+        80% { opacity: 1; max-height: 80px; margin: 0.35rem 0; }
+        100% { opacity: 0; max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -76,6 +103,10 @@ def main():
         st.session_state.data_loaded = False
     if 'df' not in st.session_state:
         st.session_state.df = pd.DataFrame()
+    if 'load_notice_expires_at' not in st.session_state:
+        st.session_state.load_notice_expires_at = 0.0
+    if 'last_loaded_count' not in st.session_state:
+        st.session_state.last_loaded_count = 0
     
     # Sidebar for controls
     st.sidebar.header("🔧 Controls")
@@ -91,15 +122,31 @@ def main():
             if df is not None and not df.empty:
                 st.session_state.df = df
                 st.session_state.data_loaded = True
-                st.sidebar.success(f"✅ Loaded {len(df)} records!")
+                st.session_state.last_loaded_count = len(df)
+                st.session_state.load_notice_expires_at = datetime.now().timestamp() + 5
             else:
                 st.sidebar.error("❌ Failed to load data")
                 st.session_state.data_loaded = False
+
+    # Show temporary success notifications after data load.
+    if datetime.now().timestamp() < st.session_state.load_notice_expires_at:
+        loaded_count = st.session_state.last_loaded_count
+        st.sidebar.markdown(
+            f"<div class='timed-notice success'>✅ Loaded {loaded_count} records!</div>",
+            unsafe_allow_html=True
+        )
+        st.sidebar.markdown(
+            "<div class='timed-notice success'>🟢 Connected to Google Sheets</div>",
+            unsafe_allow_html=True
+        )
+        st.sidebar.markdown(
+            f"<div class='timed-notice info'>📈 {loaded_count} records loaded</div>",
+            unsafe_allow_html=True
+        )
     
     # Show connection status
     if st.session_state.data_loaded:
-        st.sidebar.success("🟢 Connected to Google Sheets")
-        st.sidebar.info(f"📈 {len(st.session_state.df)} records loaded")
+        pass
     else:
         st.sidebar.warning("🟡 No data loaded")
         st.info("👆 Click 'Load/Refresh Data' in the sidebar to connect to your Google Sheets")
