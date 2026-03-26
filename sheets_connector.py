@@ -145,7 +145,10 @@ class SheetsConnector:
                     df = pd.DataFrame(normalized_rows, columns=headers)
                     df = _self.clean_data(df)
 
-                    st.warning("⚠️ Duplicate column names detected in the worksheet header. Loaded data using auto-renamed columns.")
+                    try:
+                        st.toast("Duplicate column names detected in header. Loaded data with auto-renamed columns.", icon="⚠️")
+                    except Exception:
+                        st.info("Note: Duplicate column names detected in header. Loaded data with auto-renamed columns.")
                     return df
                 except Exception as fallback_error:
                     st.error(f"❌ Error loading data after header recovery attempt: {str(fallback_error)}")
