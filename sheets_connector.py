@@ -27,6 +27,26 @@ class SheetsConnector:
             pass
 
         return sheet_name, worksheet_name
+
+    def _make_unique_headers(self, headers):
+        """Return sanitized, unique headers for DataFrame construction."""
+        seen = {}
+        unique_headers = []
+
+        for idx, header in enumerate(headers, start=1):
+            name = str(header).strip()
+            if not name:
+                name = f"Column_{idx}"
+
+            count = seen.get(name, 0) + 1
+            seen[name] = count
+
+            if count == 1:
+                unique_headers.append(name)
+            else:
+                unique_headers.append(f"{name}_{count}")
+
+        return unique_headers
         
     def connect_to_sheets(_self):
         """Connect to Google Sheets using service account credentials"""
@@ -101,8 +121,36 @@ class SheetsConnector:
             df = _self.clean_data(df)
             
             return df
-            
+
         except Exception as e:
+            # gspread raises when header names are duplicated; recover by building a DataFrame manually.
+            if "header row in the worksheet is not unique" in str(e):
+                try:
+                    all_values = worksheet.get_all_values()
+                    if not all_values:
+                        st.warning("⚠️ Worksheet is empty.")
+                        return pd.DataFrame()
+
+                    headers = _self._make_unique_headers(all_values[0])
+                    rows = all_values[1:]
+
+                    normalized_rows = []
+                    header_count = len(headers)
+                    for row in rows:
+                        if len(row) < header_count:
+                            normalized_rows.append(row + [""] * (header_count - len(row)))
+                        else:
+                            normalized_rows.append(row[:header_count])
+
+                    df = pd.DataFrame(normalized_rows, columns=headers)
+                    df = _self.clean_data(df)
+
+                    st.warning("⚠️ Duplicate column names detected in the worksheet header. Loaded data using auto-renamed columns.")
+                    return df
+                except Exception as fallback_error:
+                    st.error(f"❌ Error loading data after header recovery attempt: {str(fallback_error)}")
+                    return None
+            
             st.error(f"❌ Error loading data: {str(e)}")
             return None
     
